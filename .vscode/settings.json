@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "unistd.h": "c",
+        "system_server.h": "c",
+        "input.h": "c",
+        "stdio.h": "c",
+        "iostream": "cpp",
+        "thread": "c"
+    },
+    "C_Cpp.errorSquiggles": "Disabled"
+}
