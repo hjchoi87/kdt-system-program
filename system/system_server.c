@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <assert.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -17,6 +19,9 @@
 #include <stdint.h>
 #include <string.h>
 #include <dirent.h>
+#include <linux/unistd.h>
+#include <linux/kernel.h>
+#include <linux/types.h>
 
 #include <system_server.h>
 #include <gui.h>
@@ -29,6 +34,9 @@
 
 #define BUF_LEN 1024
 #define TOY_TEST_FS "./fs"
+
+#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \
+                        } while (0)
 
 pthread_mutex_t system_loop_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t  system_loop_cond  = PTHREAD_COND_INITIALIZER;
@@ -164,9 +172,27 @@ void *monitor_thread(void* arg)
 
 // 엔진 스레드 추가
 // 엔진 스레드는 가장 우선 순위가 높은 RT 스케줄링 적용 : RT_FIFO와 RT_RR이 있다.
-void *engine_thread()
+void *engine_thread(void *arg)
 {
+    struct sched_param sched;
+    cpu_set_t set;
+    CPU_ZERO(&set);
 
+    memset(&sched, 0, sizeof(sched));
+	sched.sched_priority = 50;
+
+    printf("rr thread started [%d]\n", gettid());
+    if (sched_setscheduler(gettid(), SCHED_RR, &sched) < 0 ) {
+		fprintf(stderr, "SETSCHEDULER failed - err = %s\n", strerror(errno));
+	} else {
+		printf("Priority set to \"%d\"\n", sched.sched_priority);
+	}
+
+    CPU_SET(0, &set);
+
+    if (sched_setaffinity(gettid(), sizeof(set), &set) == -1)
+		errExit("sched_setaffinity");
+        
 }
 
 // https://stackoverflow.com/questions/21618260/how-to-get-total-size-of-subdirectories-in-c
@@ -299,6 +325,7 @@ int system_server()
     int retcode;
     pthread_t watchdog_thread_tid, monitor_thread_tid, disk_service_thread_tid, camera_service_thread_tid;
     pthread_t timer_thread_tid;
+    pthread_t engine_thread_tid;
 
     printf("나 system_server 프로세스!\n");
 
@@ -322,6 +349,8 @@ int system_server()
     retcode = pthread_create(&camera_service_thread_tid, NULL, camera_service_thread, "camera service thread\n");
     assert(retcode == 0);
     retcode = pthread_create(&timer_thread_tid, NULL, timer_thread, "timer thread\n");
+    assert(retcode == 0);
+    retcode = pthread_create(&engine_thread_tid, NULL, engine_thread, "engine thread\n");
     assert(retcode == 0);
 
     printf("system init done.  waiting...");
