@@ -7,8 +7,9 @@ extern "C" {
 
 #include <stdint.h>
 
-int toy_camera_open(void);
-int toy_camera_take_picture(void);
+int oem_camera_open(void);
+int oem_camera_take_picture(void);
+int oem_camera_dump(void);
 
 #ifdef __cplusplus
 } // extern "C"
